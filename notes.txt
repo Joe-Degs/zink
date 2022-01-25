@@ -1,0 +1,12 @@
+
+How to handle Listening and transmitting data
+----------------------------------------------
+// im trying to look for a nice way to start listening on a network interface
+// then also listen for interrupt signals and other stuff so i can shutdown
+// gracefully.
+// If a request comes through, i want to send it off to be handled by somebody.
+// If a signal comes through i want it handled also. Requests are going to be
+// json formatted. but the structure is what im still trying to work through
+// right now
+
+- fuck how do i do this now

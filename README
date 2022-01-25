@@ -1,0 +1,14 @@
+what i want is a tool to use to send files my many virtual machines.
+I want to do this myself, and i want to make it work as expected. So maybe
+a daemon running in the background on udp obviously that connects to peers and
+keeps and can share files or other types of media between each other.
+
+- i want files sent to be able to keep their state, permissions and all the
+  other stuff should be kept same accross the various.
+
+- so basically a daemon running on unixgram that handles sending the files and
+  connecting to the other peers and all that. it accepts requests from
+
+- a single computer can have as many peers as possible right.
+
+- port to run is 60009 - 0xffff
