@@ -2,7 +2,6 @@ package peer
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 
@@ -37,26 +36,6 @@ func (Peer) Run(args []string) int {
 func printErr(err interface{}) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(1)
-}
-
-func peerConnect(addr string) (*net.UDPConn, *net.UDPAddr, error) {
-	var laddr *net.UDPAddr
-	if addr != "" {
-		var err error
-		laddr, err = net.ResolveUDPAddr("udp", addr)
-		if err != nil {
-			return nil, nil, fmt.Errorf("error resolving local address: %w", err)
-		}
-	}
-	raddr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("localhost:%s", options.Port))
-	if err != nil {
-		return nil, nil, fmt.Errorf("error resolving peer address: %w", err)
-	}
-	conn, err := net.DialUDP("udp", laddr, raddr)
-	if err != nil {
-		return nil, nil, fmt.Errorf("error connecting peer address: %w", err)
-	}
-	return conn, raddr, nil
 }
 
 func (Peer) Synopsis() string {

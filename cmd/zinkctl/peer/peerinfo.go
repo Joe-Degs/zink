@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Joe-Degs/zinc"
+	"github.com/Joe-Degs/zinc/internal/netutil"
 )
 
 // peerinfo subcommand of the peer command LOL!
@@ -30,7 +31,7 @@ Options:
 
 func (l peerinfo) Execute(args []string) error {
 	l.help(args)
-	conn, _, err := peerConnect("")
+	conn, err := netutil.TryConnect("localhost:11121", 1000)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
