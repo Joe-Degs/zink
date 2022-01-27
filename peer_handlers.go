@@ -1,12 +1,13 @@
 package zinc
 
 func (p *Peer) initInternalHandlers() {
+	ZPrintf("starting default internal request handlers...")
 	p.handlers[Ping] = p.pingRequestHandler
 }
 
 func (p Peer) pingRequestHandler(packet Packet) {
-	err := p.Send(&request{
-		typ:  packet.Type(),
+	err := p.Send(&requestWrapper{
+		typ:  Error,
 		addr: packet.Addr(),
 		data: []byte("ping handler unimplemented"),
 	})
