@@ -1,0 +1,6 @@
+Thursday, January 27, 2022
+--------------------------
+- make the ping request response thing work[STATUS=].
+    > 
+- look into making error handling a little better[STATUS=]
+- start looking into returning peerinfo as a response to ping requests[STATUS=]

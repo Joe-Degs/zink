@@ -12,3 +12,20 @@ keeps and can share files or other types of media between each other.
 - a single computer can have as many peers as possible right.
 
 - port to run is 60009 - 0xffff
+
+Uniquely identifying requests
+------------------------------
+- adding a hash to the packets can help to identify them all. so the request wrapper will
+  have a way to embed the hash of the packet in the packet. responses to the request will have to include the hash of the request in their packets to uniquely identify them.
+
+- what if the ping request is used to initiate handshakes between peers and exchange information that peers persist in their databases or something. didn't
+  realise p2p networking is this hard.
+
+Requests and Packet Types
+---------------------------
+1. Checking if a peer is active
+to find out if a peer is active, you send a ping request and it responds with a peerinfo packet
+  - Request Packet
+    - Ping
+  - Response Packet
+    - PeerInfo
