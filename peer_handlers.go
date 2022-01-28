@@ -6,11 +6,7 @@ func (p *Peer) initInternalHandlers() {
 }
 
 func (p Peer) pingRequestHandler(packet Packet) {
-	err := p.Send(&requestWrapper{
-		typ:  Error,
-		addr: packet.Addr(),
-		data: []byte("ping handler unimplemented"),
-	})
+	err := p.SendToAddr(UnImplementedEndPoint, packet.Addr())
 	if err != nil {
 		ZErrorf("failed to respond to ping request: %s", err.Error())
 	}

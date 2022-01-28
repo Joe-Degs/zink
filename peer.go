@@ -1,9 +1,10 @@
 package zinc
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/signal"
@@ -183,117 +184,104 @@ func (p *Peer) setPeerListener() error {
 	return err
 }
 
-// Send marshals packet to byte slice and sends it to a remote endpoint
-func (p Peer) Send(packet Packet) error {
-	byts, err := MarshalPacket(packet)
+// Send transmits a packet containing the remote address it is being sent to.
+func (p Peer) Send(packet Packet) error { return p.SendToAddr(packet, nil) }
+
+// SendToAddr sends packet to their remote endpoints. If the packet already
+// contains its remote endpoint it just sends it, else it unmarshals the
+// packet and sends it to its remote address
+func (p Peer) SendToAddr(packet Packet, addr *net.UDPAddr) error {
+	write := func(b []byte, addr *net.UDPAddr) error {
+		if n, err := p.lstn.WriteToUDP(b, addr); err != nil {
+			return fmt.Errorf("could not send packet: %w", err)
+		} else if n < len(packet.Data()) {
+			return fmt.Errorf("could not send all data, got: %d, sent: %d", len(packet.Data()), n)
+		}
+		return nil
+	}
+	b, err := MarshalPacket(packet)
 	if err != nil {
 		return fmt.Errorf("Send(Packet): %w", err)
 	}
-	if n, err := p.lstn.WriteToUDP(byts, packet.Addr()); err != nil {
-		return fmt.Errorf("could not send packet: %w", err)
-	} else if n < len(packet.Data()) {
-		return fmt.Errorf("could not send full packet to remote endpoint got: %d, sent: %d", len(packet.Data()), n)
+	if addr != nil {
+		return write(b, addr)
+	} else if packet.Addr() != nil {
+		return write(b, packet.Addr())
 	}
-	return nil
+	return fmt.Errorf("specify remote endpoint to send packet")
 }
 
-// Send recieves a packet, marshals the packet to bytes and sends it to the
-// specified peer through its connection.
-func (p Peer) SendPacket(packet Packet, addr *net.UDPAddr) error {
-	if pack, ok := packet.(*requestWrapper); ok {
-		pack.setRemoteEndPoint(addr)
-		return p.Send(pack)
-	}
-	byts, err := MarshalPacket(packet)
-	if err != nil {
-		return fmt.Errorf("Send(Packet): %w", err)
-	}
-	if n, err := p.lstn.WriteToUDP(byts, packet.Addr()); err != nil {
-		return fmt.Errorf("could not send packet: %w", err)
-	} else if n < len(packet.Data()) {
-		return fmt.Errorf("could not send full packet to remote endpoint")
-	}
-	return nil
-}
-
-// StartRequestReciever just listens on p.LocalAddr for data from any peer.
-// If the data is a request type it shoots it off to the appropriate handler
-// for that request to be handled.
-func (p *Peer) StartRequestReciever() error {
-	// the first thing is to start listening on some port and address
+// StartRequestReciever starts the goroutines for recieving new packets and
+// determining what to do with the packets.
+func (p *Peer) StartRequestReciever(cl chan<- io.Closer) (context.CancelFunc, error) {
 	if p.lstn == nil {
 		if !p.LocalAddr.IsValid() {
-			return errors.New(p.LocalAddr.String())
+			return nil, fmt.Errorf("StartRequestReciever: %s", p.LocalAddr.String())
 		}
 		if err := p.setPeerListener(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	p.initInternalHandlers()
-
-	// channels for recieving errors and os signals through
-	signals := make(chan os.Signal, 1)
-	cherr := make(chan error)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
-
-	// we start a goroutine whose job is to recieve bytes from the
-	// connection and send the data through a channel to another goroutine
-	// which will make use of the data.
-	go p.processRequests()
 	go func() {
-		ZPrintf("%s listening on %s", p.Id, p.LocalAddr.String())
-		for {
-			buffer := pool.GetBufferSized(500)
-			buf := buffer.Bytes()
-			n, raddr, err := p.lstn.ReadFromUDP(buf)
-			if err != nil {
-				cherr <- err
-			}
-			p.recv <- requestWrapper{
-				addr: raddr,
-				typ:  PacketType(buf[0]),
-				data: append(make([]byte, 0, n), buf[:n]...),
-			}
-			pool.PutBuffer(buffer)
-		}
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
+		<-sig
+		cl <- p.lstn
 	}()
 
-	for {
-		select {
-		case err := <-cherr:
-			ZErrorf("%v", err)
-		case sig := <-signals:
-			ZPrintf("%s", sig)
-			if err := p.lstn.Close(); err != nil {
-				ZErrorf("could not close peer: %v", err)
-				os.Exit(1)
+	p.initInternalHandlers()
+	ctx, cancel := context.WithCancel(context.Background())
+	ch := make(chan Packet)
+	go p.processRequests(ctx, ch)
+	go func(ctx context.Context) {
+		ZPrintf("%s listening on %s", p.Id, p.LocalAddr.String())
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				buffer := pool.GetBufferSized(500)
+				buf := buffer.Bytes()
+				n, raddr, err := p.lstn.ReadFromUDP(buf)
+				if err != nil {
+					ZErrorf("StartRequestReceiver: %v", err)
+					continue
+				}
+				ch <- requestWrapper{
+					addr: raddr,
+					typ:  PacketType(buf[0]),
+					data: append(make([]byte, 0, n), buf[:n]...),
+				}
+				pool.PutBuffer(buffer)
 			}
-			os.Exit(1)
 		}
-	}
+	}(ctx)
+
+	return cancel, nil
 }
 
-func (p *Peer) processRequests() {
-	zlog.Println("starting initial request processor...")
-	for req := range p.recv {
-		ZPrintf("Recieved '%s' request from %s", req.Type().String(), req.Addr().String())
+// processRequests is run as a goroutine to process a newly recieved packet
+// and determine where the packet is destined for.
+func (p *Peer) processRequests(ctx context.Context, ch <-chan Packet) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case req := <-ch:
+			ZPrintf("Recieved '%s' request from %s", req.Type().String(), req.Addr().String())
 
-		if f, ok := p.handlers[req.Type()]; ok {
-			go f(req)
-		} else {
-			// do not have a handler for the request so send it
-			ZErrorf("no registered handler for packet type %s", req.Type().String())
-			go func() {
-				err := p.Send(&requestWrapper{
-					addr: req.Addr(),
-					typ:  Error,
-					data: []byte("server cannot handle request type"),
-				})
-				if err != nil {
-					ZErrorf("sending error response failed: %s", err.Error())
-				}
-			}()
+			if f, ok := p.handlers[req.Type()]; ok {
+				go f(req)
+			} else {
+				ZErrorf("no registered handler for packet type %s", req.Type().String())
+				go func() {
+					err := p.Send(ErrrorWithAddr(UnknownPacketType, req.Addr()))
+					if err != nil {
+						ZErrorf("sending error response failed: %s", err.Error())
+					}
+				}()
+			}
 		}
 	}
 }
