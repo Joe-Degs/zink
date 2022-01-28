@@ -1,13 +1,10 @@
 package peer
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
-	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/Joe-Degs/zinc"
 	"github.com/Joe-Degs/zinc/internal/netutil"
@@ -51,59 +48,33 @@ func (l ping) Execute(args []string) error {
 	}
 	defer conn.Close()
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
-	byts := make(chan []byte)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	go func() {
-		for {
-			if err := sendPingPacket(conn); err != nil {
-				zinc.ZErrorf("could not write ping packet: %v", err)
-				continue
-			}
-
-			buffer := pool.GetBufferSized(100)
-			buf := buffer.Bytes()
-			n, err := conn.Read(buf)
-			if err != nil {
-				zinc.ZErrorf("could not read ping response: %s", err.Error())
-				continue
-			}
-			byts <- append(make([]byte, 0, n), buf[:n]...)
-			pool.PutBuffer(buffer)
-		}
-	}()
-
-	var pongCount int
-
-	for {
-		select {
-		case sig := <-signals:
-			printErr(fmt.Sprintf("%s signal recieved", sig.String()))
-		case b := <-byts:
-			switch zinc.PacketType(b[0]) {
-			case zinc.Pong:
-				if pongCount > 3 {
-					// request peer info and stop sending ping requests.
-					zinc.ZPrintf("peer is active")
-					os.Exit(0)
-				}
-				zinc.ZPrintf("ping request recieved")
-				pongCount += 1
-			case zinc.Error:
-				// recieved an error response, decode, print and stop
-				printErr(fmt.Errorf("error pinging peer: %s", b[1:]))
-			default:
-				// packet type unknown
-				return fmt.Errorf("recieved unknown packet from peer")
-			}
-		case <-ctx.Done():
-			// fmt.Fprintf(os.Stderr, "timeout: peer at %s not active", addr)
-			return fmt.Errorf("timeout: peer at %s not active", addr)
-		}
+	if err := sendPingPacket(conn); err != nil {
+		zinc.ZErrorf("could not write ping packet: %v", err)
 	}
+
+	buffer := pool.GetBufferSized(100)
+	defer pool.PutBuffer(buffer)
+	buf := buffer.Bytes()
+	n, err := conn.Read(buf)
+	if err != nil {
+		return err
+	}
+
+	packet, err := zinc.UnmarshalPacket(buf[:n])
+	if err != nil {
+		return err
+	}
+
+	switch packet.Type() {
+	case zinc.Error:
+		return fmt.Errorf(string(packet.Data()))
+	case zinc.Pong:
+		fmt.Println("recieved pong packet")
+	default:
+		return fmt.Errorf("unknown response from peer")
+	}
+
+	return nil
 }
 
 func (l ping) help(args []string) {
