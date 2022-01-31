@@ -29,8 +29,7 @@ const (
 	Error PacketType = iota
 	Ping
 	Pong
-	PeerInfoRequest
-	PeerInfoResponse
+	PeerInfo
 )
 
 // requestWrapper implements a zinc package Packet and it represents any packet comming

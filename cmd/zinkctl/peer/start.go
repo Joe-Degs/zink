@@ -80,7 +80,7 @@ func handleShutdown(cl <-chan io.Closer) {
 			case <-donec:
 				os.Exit(0)
 			case <-time.After(3 * time.Second):
-				log.Fatal("timeout shutting down...")
+				log.Fatal("timeout shutting down")
 			}
 		case syscall.SIGHUP:
 			// restart

@@ -11,13 +11,12 @@ func _() {
 	_ = x[Error-0]
 	_ = x[Ping-1]
 	_ = x[Pong-2]
-	_ = x[PeerInfoRequest-3]
-	_ = x[PeerInfoResponse-4]
+	_ = x[PeerInfo-3]
 }
 
-const _PacketType_name = "ErrorPingPongPeerInfoRequestPeerInfoResponse"
+const _PacketType_name = "ErrorPingPongPeerInfo"
 
-var _PacketType_index = [...]uint8{0, 5, 9, 13, 28, 44}
+var _PacketType_index = [...]uint8{0, 5, 9, 13, 21}
 
 func (i PacketType) String() string {
 	if i >= PacketType(len(_PacketType_index)-1) {

@@ -38,7 +38,7 @@ func (l peerinfo) Execute(args []string) error {
 	}
 	defer conn.Close()
 	// a peerinfo request packet
-	packet := []byte{byte(zinc.PeerInfoRequest), 0xf}
+	packet := []byte{byte(zinc.PeerInfo), 0xf}
 	if _, err := conn.Write(packet); err != nil {
 		zinc.ZErrorf("could not write peerinfo packet: %v", err)
 		os.Exit(1)

@@ -1,10 +1,13 @@
 package peer
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/Joe-Degs/zinc"
 	"github.com/Joe-Degs/zinc/internal/netutil"
@@ -70,6 +73,19 @@ func (l ping) Execute(args []string) error {
 		return fmt.Errorf(string(packet.Data()))
 	case zinc.Pong:
 		fmt.Println("recieved pong packet")
+	case zinc.PeerInfo:
+		var rePeer zinc.Peer
+		if err := json.Unmarshal(packet.Data(), &rePeer); err != nil {
+			log.Fatal(err)
+		}
+
+		w := new(tabwriter.Writer)
+		w.Init(os.Stdout, 8, 8, 2, '\t', 0)
+		fmt.Fprintf(w, "\n %s\t%s\t%s\t%s\t", "Name", "ID", "Address", "Status")
+		fmt.Fprintf(w, "\n %s\t%s\t%s\t%s\t", "----", "--", "-------", "------")
+		fmt.Fprintf(w, "\n %s\t%s\t%s\t%s\t", rePeer.Name, rePeer.Id.String(),
+			rePeer.LocalAddr.String(), "ACTIVE")
+		w.Flush()
 	default:
 		return fmt.Errorf("unknown response from peer")
 	}
