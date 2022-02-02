@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/Joe-Degs/zinc"
+	"github.com/Joe-Degs/zinc/cmd/zinkctl/cluster"
 	"github.com/Joe-Degs/zinc/cmd/zinkctl/peer"
 	"github.com/mitchellh/cli"
 )
@@ -18,6 +19,9 @@ func main() {
 	c.Commands = map[string]cli.CommandFactory{
 		"peer": func() (cli.Command, error) {
 			return &peer.Peer{}, nil
+		},
+		"cluster": func() (cli.Command, error) {
+			return &cluster.Cluster{}, nil
 		},
 	}
 

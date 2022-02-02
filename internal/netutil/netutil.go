@@ -60,7 +60,11 @@ func ListenOnLocalRandomPort() (*net.UDPConn, error) {
 
 // IPPortFromAddr tries to return a valid netaddr.IPPort from an address string
 func IPPortFromAddr(addr string) (*netaddr.IPPort, error) {
-	ipport, err := netaddr.ParseIPPort(addr)
+	udpAddr, err := resolveAddr(addr)
+	if err != nil {
+		return nil, err
+	}
+	ipport, err := netaddr.ParseIPPort(udpAddr.String())
 	if err != nil {
 		return nil, err
 	}

@@ -13,13 +13,14 @@ import (
 
 	"github.com/Joe-Degs/zinc/internal/netutil"
 	"github.com/Joe-Degs/zinc/internal/pool"
+	"github.com/google/uuid"
 	"inet.af/netaddr"
 )
 
 // A Peer is a node in the system, it can interact with other peers and send
 // things back and forth
 type Peer struct {
-	Id        Uid             `json:"-"`
+	Id        uuid.UUID       `json:"id"`
 	Name      string          `json:"name,omitempty"`
 	LocalAddr *netaddr.IPPort `json:"-"`
 	lstn      *net.UDPConn
@@ -33,10 +34,10 @@ func RandomPeer(name string) *Peer {
 }
 
 // PeerFromSpec returns a peer with the desired state passed to the function
-func PeerFromSpec(name string, addr string, uidfunc func() Uid) (*Peer, error) {
+func PeerFromSpec(name string, addr string, uuid uuid.UUID) (*Peer, error) {
 	peer := &Peer{
 		Name:     name,
-		Id:       uidfunc(),
+		Id:       uuid,
 		recv:     make(chan Packet),
 		handlers: make(map[PacketType]InternalHandlerFunc),
 	}
@@ -46,7 +47,7 @@ func PeerFromSpec(name string, addr string, uidfunc func() Uid) (*Peer, error) {
 		return peer, err
 	}
 
-	if err = peer.setPeerListener(); err != nil {
+	if err = peer.setListener(); err != nil {
 		return peer, err
 	}
 	return peer, nil
@@ -58,7 +59,7 @@ func PeerFromSpec(name string, addr string, uidfunc func() Uid) (*Peer, error) {
 // `PeerFromSpec` function.
 func peer(name string) (p *Peer) {
 	p = &Peer{
-		Id:   RandomUid(),
+		Id:   uuid.New(),
 		Name: name,
 	}
 	var err error
@@ -90,7 +91,7 @@ func (p *Peer) MarshalJSON() ([]byte, error) {
 func (p *Peer) UnmarshalJSON(data []byte) error {
 	type PeerInfo Peer
 	pi := struct {
-		Id   string `json:"id"`
+		// Id   string `json:"id"`
 		Addr string `json:"addr,omitempty"`
 		*PeerInfo
 	}{
@@ -102,15 +103,6 @@ func (p *Peer) UnmarshalJSON(data []byte) error {
 		return err
 	}
 
-	// parse uid
-	if p.Id, err = ParseUid(pi.Id); err != nil {
-		return err
-	}
-
-	// when the Peer.LocalAddr is left empty, it becomes "invalid IPPort" after
-	// the unmarshaling. So we check that it is actually an ipport before we
-	// try to parse into an ipport. Might want to change it later to something
-	// a little more robust
 	if pi.Addr != "invalid IPPort" {
 		if p.LocalAddr, err = netutil.IPPortFromAddr(pi.Addr); err != nil {
 			return err
@@ -131,23 +123,18 @@ func (p Peer) String() string {
 	return str.String()
 }
 
-// MarshalText implements the encoding.TextMarshaler inteface. It returns the
-// info of a peer in text format, which is useful when you want to write it to
-// a file for storage The text format of a peer is just
-// 3 space separated strings. In the case that the peer's ip address is `nil`,
-// only the name and the uid of the peer will be marshalled to text
 func (p *Peer) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
 // UnmarshalText implements the encoding.TextUmarshaler interface.
 func (p *Peer) UnmarshalText(text []byte) error {
-	// text contains three space separated strings marshalled to bytes.
+	// text contains three space separated strings
 	// The strings represent the `id`, `name` and `addr` of a peer.
 	// the id field is compulsory, name and addr are optional.
 	str := strings.Split(string(text), " ")
 	var err error
-	if p.Id, err = ParseUid(str[0]); err != nil {
+	if p.Id, err = uuid.Parse(str[0]); err != nil {
 		return err
 	}
 
@@ -155,28 +142,28 @@ func (p *Peer) UnmarshalText(text []byte) error {
 	// address field becomes the second field in the text string
 	if len(str) > 1 {
 		if strings.Contains(str[1], ":") {
-			return p.setIPPort(str[1])
+			return p.setAddr(str[1])
 		} else {
 			p.Name = str[1]
 			if len(str) == 3 {
-				return p.setIPPort(str[2])
+				return p.setAddr(str[2])
 			}
 		}
 	}
 	return nil
 }
 
-func (p *Peer) setIPPort(addr string) (err error) {
+func (p *Peer) setAddr(addr string) (err error) {
 	if p.LocalAddr, err = netutil.IPPortFromAddr(addr); err != nil {
 		return err
 	}
 	return
 }
 
-// setPeerListener opens a new listening socket on local interface with
+// setListener opens a new listening socket on local interface with
 // address Peer.LocalAddr. This function will create a listener listening on all
 // the local interfaces if Peer.LocalAddr is nil
-func (p *Peer) setPeerListener() error {
+func (p *Peer) setListener() error {
 	var err error
 	if p.lstn, err = netutil.Listen(p.LocalAddr.String()); err != nil {
 		return err
@@ -211,14 +198,14 @@ func (p Peer) SendToAddr(packet Packet, addr *net.UDPAddr) error {
 	return fmt.Errorf("specify remote endpoint to send packet")
 }
 
-// StartRequestReciever starts the goroutines for recieving new packets and
+// StartServer starts the goroutines for recieving new packets and
 // determining what to do with the packets.
-func (p *Peer) StartRequestReciever(cl chan<- io.Closer) (context.CancelFunc, error) {
+func (p *Peer) StartServer(cl chan<- io.Closer) (context.CancelFunc, error) {
 	if p.lstn == nil {
 		if !p.LocalAddr.IsValid() {
 			return nil, fmt.Errorf("StartRequestReciever: %s", p.LocalAddr.String())
 		}
-		if err := p.setPeerListener(); err != nil {
+		if err := p.setListener(); err != nil {
 			return nil, err
 		}
 	}

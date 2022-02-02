@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Joe-Degs/zinc"
+	"github.com/google/uuid"
 )
 
 // peer subcommand of the start command LOL!
@@ -34,13 +35,13 @@ func (s start) Execute(args []string) error {
 
 	addr := fmt.Sprintf("127.0.0.1:%s", options.Port)
 	zinc.ZPrintf("address to start peer on: %s", addr)
-	pier, err := zinc.PeerFromSpec(options.Name, addr, zinc.RandomUid)
+	pier, err := zinc.PeerFromSpec(options.Name, addr, uuid.New())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, fmt.Errorf("could not start peer: %w", err))
 		os.Exit(1)
 	}
 	cl := make(chan io.Closer)
-	cancel, err := pier.StartRequestReciever(cl)
+	cancel, err := pier.StartServer(cl)
 	if err != nil {
 		if cancel != nil {
 			cancel()

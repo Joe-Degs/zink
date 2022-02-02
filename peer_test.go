@@ -9,20 +9,12 @@ import (
 	"inet.af/netaddr"
 )
 
-// type TC struct {
-// 	cases []struct {
-// 		name string
-// 		Peer
-// 	}
-// 	fn func(*testing.T, []byte, Peer)
-// }
-
-func getIPPort(addr string) netaddr.IPPort {
+func getIPPort(addr string) *netaddr.IPPort {
 	laddr, err := netaddr.ParseIPPort(addr)
 	if err != nil {
 		zlog.Panicln(err)
 	}
-	return laddr
+	return &laddr
 }
 
 func TestPeerJSON(t *testing.T) {
