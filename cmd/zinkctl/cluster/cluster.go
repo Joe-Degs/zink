@@ -15,7 +15,7 @@ func (Cluster) Help() string {
 	return strings.TrimSpace(`
 Usage: zinkctl [global options] cluster
 
- start, stop, list, delete peers in clusters
+ start, stop, list, delete peers
 		`)
 }
 
