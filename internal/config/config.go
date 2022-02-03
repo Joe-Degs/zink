@@ -2,10 +2,15 @@ package config
 
 import (
 	"encoding/json"
+	"net"
 	"os"
+
+	"github.com/Joe-Degs/zinc/internal/netutil"
+	"inet.af/netaddr"
 )
 
-var sampleConfig = `{
+var (
+	sampleClusterConfig = `{
 	"name": "joe",
 	"addr": "localhost:6009",
 	"peers": [{
@@ -14,36 +19,94 @@ var sampleConfig = `{
 	},{
 		"name": "messi",
 		"addr": "localhost:30011",
+	}, {
+		"name": "oskee",
+		"addr": "localhost:40011"
 	}]
 }`
 
-type Config struct {
-	Name  string `json:"name"`
-	Addr  string `json:"addr"`
-	Id    string `json:"id"`
-	Peers []struct {
-		Name string `json:"name"`
-		Addr string `json:"addr"`
-		Id   string `json:"id"`
-	} `json:"peers"`
+	samplePeerConfig = `{
+	"name": "oskee",
+	"addr": "localhost:40011"
+}`
+)
+
+type PeerConfig struct {
+	Name string `json:"name"`
+	Addr string `json:"addr"`
+	Id   string `json:"id"`
 }
 
-func LoadJSON(b []byte) (*Config, error) {
-	var config Config
-	if err := json.Unmarshal(b, &config); err != nil {
+type ClusterConfig struct {
+	*PeerConfig
+	Peers []*PeerConfig
+}
+
+func (c PeerConfig) GetConnAndIP() (conn *net.UDPConn, addr *netaddr.IPPort, err error) {
+	if c.Addr == "" {
+		return netutil.ConnAndAddr("localhost:0")
+	}
+	return netutil.ConnAndAddr(c.Addr)
+}
+
+func (c *ClusterConfig) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(c)
+	if err != nil {
 		return nil, err
 	}
-	return &config, nil
+	return b, nil
 }
 
-func LoadFile(filename string) (*Config, error) {
+func (c *ClusterConfig) UnmarshalJSON(b []byte) error {
+	if err := json.Unmarshal(b, c); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *PeerConfig) MarshalJSON() ([]byte, error) {
+	b, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func (p *PeerConfig) UnmarshalJSON(b []byte) error {
+	if err := json.Unmarshal(b, p); err != nil {
+		return err
+	}
+	return nil
+}
+
+func ClusterConfigFromJSON(b []byte) (*ClusterConfig, error) {
+	c := &ClusterConfig{}
+	if err := c.UnmarshalJSON(b); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func PeerConfigFromJSON(b []byte) (*PeerConfig, error) {
+	p := &PeerConfig{}
+	if err := p.UnmarshalJSON(b); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func ClusterConfigFromFile(filename string) (*ClusterConfig, error) {
 	file, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
-	return LoadJSON(file)
+	return ClusterConfigFromJSON(file)
 }
 
-func LoadSampleConfig() (*Config, error) {
-	return LoadJSON([]byte(sampleConfig))
+func DefaultClusterConfig() (*ClusterConfig, error) {
+	return ClusterConfigFromJSON([]byte(sampleClusterConfig))
+}
+
+func DefaultPeerConfig() (*PeerConfig, error) {
+	return PeerConfigFromJSON([]byte(sampleClusterConfig))
 }

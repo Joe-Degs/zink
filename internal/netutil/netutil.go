@@ -53,18 +53,28 @@ func Listen(addr string) (*net.UDPConn, error) {
 	return lstn, nil
 }
 
+func ConnAndAddr(address string) (conn *net.UDPConn, addr *netaddr.IPPort, err error) {
+	conn, err = Listen(address)
+	if err != nil {
+		return
+	}
+	addr, err = IPPortFromAddr(conn.LocalAddr().String())
+	if err != nil {
+		return
+	}
+	return
+}
+
 // Return a UDP connection listening on a random port
 func ListenOnLocalRandomPort() (*net.UDPConn, error) {
 	return Listen("localhost:0")
 }
 
 // IPPortFromAddr tries to return a valid netaddr.IPPort from an address string
+// The address must be an ip:port pair, address resolution is not done by this
+// package.
 func IPPortFromAddr(addr string) (*netaddr.IPPort, error) {
-	udpAddr, err := resolveAddr(addr)
-	if err != nil {
-		return nil, err
-	}
-	ipport, err := netaddr.ParseIPPort(udpAddr.String())
+	ipport, err := netaddr.ParseIPPort(addr)
 	if err != nil {
 		return nil, err
 	}

@@ -13,26 +13,40 @@ type Cluster struct {
 	Members map[string]*Node
 }
 
-func NewCluster(config *config.Config) (*Cluster, error) {
+func NewCluster(config *config.ClusterConfig) (*Cluster, error) {
 	cluster := &Cluster{
-		Peer: &Peer{
-			Name: config.Name,
-		},
 		Members: make(map[string]*Node),
 	}
 
+	if config == nil {
+		if err := cluster.initDefault(); err != nil {
+			return cluster, err
+		}
+		return cluster, nil
+	}
+
+	if err := cluster.init(config); err != nil {
+		return cluster, nil
+	}
+
+	return cluster, nil
+}
+
+// initialize the cluster with the values from the loaded config file
+func (c *Cluster) init(config *config.ClusterConfig) error {
 	if config.Id != "" {
 		id, err := uuid.Parse(config.Id)
 		if err != nil {
-			return cluster, err
+			return err
 		}
-		cluster.Id = id
+		c.Id = id
 	} else {
-		cluster.Id = uuid.New()
+		c.Id = uuid.New()
 	}
 
-	if err := cluster.Peer.setAddr(config.Addr); err != nil {
-		return cluster, err
+	// add address and open connection
+	if err := c.Peer.setAddr(config.Addr); err != nil {
+		return err
 	}
 
 	for _, peer := range config.Peers {
@@ -41,20 +55,26 @@ func NewCluster(config *config.Config) (*Cluster, error) {
 			var err error
 			id, err = uuid.Parse(peer.Id)
 			if err != nil {
-				return cluster, err
+				return err
 			}
 		} else {
 			id = uuid.New()
 		}
 		p, err := PeerFromSpec(peer.Name, peer.Addr, id)
 		if err != nil {
+			//TODO(joe):
+			// what to do with the error?
 			continue
 		}
 
-		cluster.Members[id.String()] = NewNode(p)
+		c.Members[id.String()] = NewNode(p)
 	}
+	return nil
+}
 
-	return cluster, nil
+// use the default config files that come with the project
+func (c *Cluster) initDefault() error {
+	return nil
 }
 
 func (c *Cluster) StartServer(cl chan<- io.Closer) (context.CancelFunc, error) {
