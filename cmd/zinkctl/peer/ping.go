@@ -85,6 +85,7 @@ func (l ping) Execute(args []string) error {
 		fmt.Fprintf(w, "\n %s\t%s\t%s\t%s\t", "----", "--", "-------", "------")
 		fmt.Fprintf(w, "\n %s\t%s\t%s\t%s\t", rePeer.Name, rePeer.Id.String(),
 			rePeer.LocalAddr.String(), "ACTIVE")
+		fmt.Fprintln(w, "")
 		w.Flush()
 	default:
 		return fmt.Errorf("unknown response from peer")
