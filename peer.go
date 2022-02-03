@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/Joe-Degs/zinc/internal/config"
 	"github.com/Joe-Degs/zinc/internal/netutil"
 	"github.com/Joe-Degs/zinc/internal/pool"
 	"github.com/google/uuid"
@@ -51,6 +52,40 @@ func PeerFromSpec(name string, addr string, uuid uuid.UUID) (*Peer, error) {
 		return peer, err
 	}
 	return peer, nil
+}
+
+func NewPeer(config *config.PeerConfig) (*Peer, error) {
+	peer := &Peer{
+		recv:     make(chan Packet),
+		handlers: make(map[PacketType]InternalHandlerFunc),
+	}
+	if config == nil {
+		return peer, nil
+	}
+	if err := peer.init(config); err != nil {
+		return peer, err
+	}
+	return peer, nil
+}
+
+func (p *Peer) init(config *config.PeerConfig) error {
+	p.Name = config.Name
+	if config.Id != "" {
+		id, err := uuid.Parse(config.Id)
+		if err != nil {
+			return err
+		}
+		p.Id = id
+	} else {
+		p.Id = uuid.New()
+	}
+
+	conn, addr, err := config.GetConnAndIP()
+	if err != nil {
+		return err
+	}
+	p.lstn, p.LocalAddr = conn, addr
+	return nil
 }
 
 // peer returns a new peer with mostly random information. this function is

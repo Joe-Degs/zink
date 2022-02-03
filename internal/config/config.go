@@ -108,5 +108,5 @@ func DefaultClusterConfig() (*ClusterConfig, error) {
 }
 
 func DefaultPeerConfig() (*PeerConfig, error) {
-	return PeerConfigFromJSON([]byte(sampleClusterConfig))
+	return PeerConfigFromJSON([]byte(samplePeerConfig))
 }

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/Joe-Degs/zinc"
-	"github.com/google/uuid"
+	"github.com/Joe-Degs/zinc/internal/config"
 )
 
 // peer subcommand of the start command LOL!
@@ -33,12 +33,16 @@ Options:
 func (s start) Execute(args []string) error {
 	s.help(args)
 
-	addr := fmt.Sprintf("127.0.0.1:%s", options.Port)
-	zinc.ZPrintf("address to start peer on: %s", addr)
-	pier, err := zinc.PeerFromSpec(options.Name, addr, uuid.New())
+	// addr := fmt.Sprintf("127.0.0.1:%s", options.Port)
+	// zinc.ZPrintf("address to start peer on: %s", addr)
+	// pier, err := zinc.PeerFromSpec(options.Name, addr, uuid.New())
+	conf, err := config.DefaultPeerConfig()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, fmt.Errorf("could not start peer: %w", err))
-		os.Exit(1)
+		return fmt.Errorf("error loading configs: %w", err)
+	}
+	pier, err := zinc.NewPeer(conf)
+	if err != nil {
+		return fmt.Errorf("could not start peer: %w", err)
 	}
 	cl := make(chan io.Closer)
 	cancel, err := pier.StartServer(cl)

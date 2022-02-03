@@ -16,11 +16,15 @@ func resolveAddr(addr string) (*net.UDPAddr, error) {
 // TryConnect tries to make to UDP connection to addr regularly until `wait`
 // time is over
 func TryConnect(addr string, wait time.Duration) (*net.UDPConn, error) {
+	raddr, err := resolveAddr(addr)
+	if err != nil {
+		return nil, err
+	}
 	done := time.Now().Add(wait)
 	for time.Now().Before(done) {
-		c, err := Connect(addr)
+		conn, _ := ConnectAddr(raddr)
 		if err == nil {
-			return c, nil
+			return conn, nil
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -33,7 +37,11 @@ func Connect(addr string) (*net.UDPConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	c, err := net.DialUDP("udp", nil, raddr)
+	return ConnectAddr(raddr)
+}
+
+func ConnectAddr(addr *net.UDPAddr) (*net.UDPConn, error) {
+	c, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
 		return nil, err
 	}
