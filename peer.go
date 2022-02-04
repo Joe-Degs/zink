@@ -267,7 +267,7 @@ func (p *Peer) StartServer(cl chan<- io.Closer) (context.CancelFunc, error) {
 				buf := buffer.Bytes()
 				n, raddr, err := p.lstn.ReadFromUDP(buf)
 				if err != nil {
-					ZErrorf("StartRequestReceiver: %v", err)
+					ZErrorf("StartServer: %v", err)
 					continue
 				}
 				ch <- requestWrapper{

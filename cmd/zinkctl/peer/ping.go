@@ -44,10 +44,9 @@ func (l ping) Execute(args []string) error {
 	l.help(args)
 
 	addr := fmt.Sprintf("localhost:%s", options.Port)
-	conn, err := netutil.TryConnect(addr, 1000)
+	conn, err := netutil.Connect(addr)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return fmt.Errorf("ping: %w", err)
 	}
 	defer conn.Close()
 

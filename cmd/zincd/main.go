@@ -7,11 +7,12 @@ import (
 	"log"
 
 	"github.com/Joe-Degs/zinc"
+	"github.com/google/uuid"
 )
 
 func main() {
 	peer1 := zinc.RandomPeer("node1")
-	peer2, err := zinc.PeerFromSpec("node2", "0.0.0.0:60009", zinc.RandomUid)
+	peer2, err := zinc.PeerFromSpec("node2", "0.0.0.0:60009", uuid.New())
 	if err != nil {
 		log.Fatal(err)
 	}
